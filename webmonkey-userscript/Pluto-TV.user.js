@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.0.0
+// @version      1.1.0
 // @match        *://pluto.tv/live-tv
 // @match        *://pluto.tv/live-tv/*
 // @match        *://*.pluto.tv/live-tv
@@ -17,12 +17,17 @@
 // @copyright    Warren Bank
 // ==/UserScript==
 
+// ----------------------------------------------------------------------------- constants
+
 const user_options = {
   "script_init_poll_interval_ms": 500,
-  "script_init_timeout_ms": 30000
+  "script_init_timeout_ms":       30000,
+  "redirect_to_webcast_reloaded": true,
+  "force_http":                   true,
+  "force_https":                  false
 }
 
-// -----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------- DOM updates
 
 const pre_update_dom = function() {
   const CSS = `
@@ -59,7 +64,7 @@ const update_dom = function() {
   unsafeWindow.onclick()
 }
 
-// -----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------- URL for HLS video stream
 
 const is_channel = function() {
   const pathname = unsafeWindow.location.pathname
@@ -134,13 +139,60 @@ const get_hls_url = function() {
   return hls_url
 }
 
-const process_hls_url = function(hls_url) {
-  const extras = ['referUrl', unsafeWindow.location.href]
+// ----------------------------------------------------------------------------- URL for Webcast Reloaded website
 
-  GM_startIntent(/* action= */ 'android.intent.action.VIEW', /* data= */ hls_url, /* type= */ 'application/x-mpegurl', /* extras: */ ...extras)
+const get_webcast_reloaded_url = (hls_url, vtt_url, referer_url) => {
+  let encoded_hls_url, encoded_vtt_url, encoded_referer_url, webcast_reloaded_base, webcast_reloaded_url
+
+  encoded_hls_url       = encodeURIComponent(encodeURIComponent(btoa(hls_url)))
+  encoded_vtt_url       = vtt_url ? encodeURIComponent(encodeURIComponent(btoa(vtt_url))) : null
+  referer_url           = referer_url ? referer_url : unsafeWindow.location.href
+  encoded_referer_url   = encodeURIComponent(encodeURIComponent(btoa(referer_url)))
+
+  webcast_reloaded_base = {
+    "https": "https://warren-bank.github.io/crx-webcast-reloaded/external_website/index.html",
+    "http":  "http://webcast-reloaded.surge.sh/index.html"
+  }
+
+  webcast_reloaded_base = (user_options.force_http)
+                            ? webcast_reloaded_base.http
+                            : (user_options.force_https)
+                               ? webcast_reloaded_base.https
+                               : (hls_url.toLowerCase().indexOf('http:') === 0)
+                                  ? webcast_reloaded_base.http
+                                  : webcast_reloaded_base.https
+
+  webcast_reloaded_url  = webcast_reloaded_base + '#/watch/' + encoded_hls_url + (encoded_vtt_url ? ('/subtitle/' + encoded_vtt_url) : '') + '/referer/' + encoded_referer_url
+  return webcast_reloaded_url
 }
 
-// -----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------- URL redirect
+
+const redirect_to_url = function(url) {
+  if (!url) return
+
+  try {
+    unsafeWindow.top.location = url
+  }
+  catch(e) {
+    unsafeWindow.location = url
+  }
+}
+
+const process_hls_url = function(hls_url) {
+  const referer_url = unsafeWindow.location.href
+
+  if (typeof GM_startIntent === 'function') {
+    // running in Android-WebMonkey: open Intent chooser
+    GM_startIntent(/* action= */ 'android.intent.action.VIEW', /* data= */ hls_url, /* type= */ 'application/x-mpegurl', /* extras: */ 'referUrl', referer_url)
+  }
+  else if (user_options.redirect_to_webcast_reloaded) {
+    // running in standard web browser: redirect URL to top-level tool on Webcast Reloaded website
+    redirect_to_url(get_webcast_reloaded_url(hls_url, /* vtt_url= */ null, referer_url))
+  }
+}
+
+// ----------------------------------------------------------------------------- bootstrap
 
 const init = function(hls_url) {
   if (hls_url) {
