@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.1.0
+// @version      1.2.0
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -35,7 +35,11 @@ var constants = {
     "button_refresh":    "load_data"
   },
   "dom_classes": {
-    "collapsible":       "collapsible",
+    "toggle_collapsed":  "collapsible_state_closed",
+    "toggle_expanded":   "collapsible_state_opened",
+    "div_heading":       "heading",
+    "div_toggle":        "toggle_collapsible",
+    "div_collapsible":   "collapsible",
     "div_webcast_icons": "icons-container"
   },
   "epg_url_qs": {
@@ -60,6 +64,7 @@ var reinitialize_dom = function() {
       // --------------------------------------------------- CSS: global
 
       'body {',
+      '  background-color: #fff;',
       '  text-align: center;',
       '}',
 
@@ -97,7 +102,6 @@ var reinitialize_dom = function() {
 
       '#EPG_data {',
       '  margin-top: 0.5em;',
-      '  background-color: #999;',
       '  text-align: left;',
       '}',
 
@@ -105,18 +109,35 @@ var reinitialize_dom = function() {
       '  border: 1px solid #333;',
       '}',
 
-      '#EPG_data > div > h2 {',
+      '#EPG_data > div > div.heading {',
+      '  position: relative;',
+      '  z-index: 1;',
+      '  overflow: hidden;',
+      '}',
+
+      '#EPG_data > div > div.heading > h2 {',
       '  display: block;',
-      '  width: 75%;',
+      '  margin: 0;',
+      '  margin-right: 94px;',
       '  background-color: #ccc;',
       '  padding: 0.25em;',
-      '  margin: 0;',
       '  color: blue;',
       '  cursor: pointer;',
       '}',
 
+      '#EPG_data > div > div.heading > div.toggle_collapsible {',
+      '  display: block;',
+      '  width: 94px;',
+      '  background-color: #999;',
+      '  position: absolute;',
+      '  z-index: 1;',
+      '  top: 0;',
+      '  bottom: 0;',
+      '  right: 0;',
+      '  cursor: help;',
+      '}',
+
       '#EPG_data > div > div.collapsible {',
-      '  background-color: #fff;',
       '  padding: 0.5em;',
       '}',
 
@@ -124,6 +145,27 @@ var reinitialize_dom = function() {
       '  background-color: #eee;',
       '  padding: 0.5em 1em;',
       '  margin: 0;',
+      '}',
+
+      // --------------------------------------------------- CSS: EPG data (collapsible toggle state)
+
+      '#EPG_data > div > div.heading > div.toggle_collapsible {',
+      '  background-repeat: no-repeat;',
+      '  background-position: center;',
+      '}',
+
+      '#EPG_data > div.collapsible_state_closed > div.heading > div.toggle_collapsible {',
+      '  background-image: url("https://github.com/material-icons/material-icons-png/raw/master/png/white/arrow_drop_down_circle/twotone.png");',
+      '}',
+      '#EPG_data > div.collapsible_state_closed > div.collapsible {',
+      '  display: none;',
+      '}',
+
+      '#EPG_data > div.collapsible_state_opened > div.heading > div.toggle_collapsible {',
+      '  background-image: url("https://github.com/material-icons/material-icons-png/raw/master/png/white/expand_less/round.png");',
+      '}',
+      '#EPG_data > div.collapsible_state_opened > div.collapsible {',
+      '  display: block;',
       '}',
 
       // --------------------------------------------------- CSS: EPG data (links to tools on Webcast Reloaded website)
@@ -417,19 +459,6 @@ var process_hls_url = function(hls_url, referer_url) {
 
 // ----------------------------------------------------------------------------- DOM: dynamic elements - EPG data
 
-var onclick_channel_div = function(event) {
-  event.stopPropagation();event.stopImmediatePropagation();event.preventDefault();event.returnValue=true;
-
-  var div = event.target
-  if (!div || !(div instanceof HTMLElement)) return
-
-  var collapsible_div = div.querySelector(':scope > .' + constants.dom_classes.collapsible)
-  if (!collapsible_div || !(collapsible_div instanceof HTMLElement)) return
-
-  var display = collapsible_div.style.display
-  collapsible_div.style.display = (display === 'none') ? 'block' : 'none'
-}
-
 var onclick_channel_title = function(event) {
   event.stopPropagation();event.stopImmediatePropagation();event.preventDefault();event.returnValue=true;
 
@@ -440,6 +469,20 @@ var onclick_channel_title = function(event) {
   if (hls_url && referer_url) {
     process_hls_url(hls_url, referer_url)
   }
+}
+
+var onclick_channel_toggle = function(event) {
+  event.stopPropagation();event.stopImmediatePropagation();event.preventDefault();event.returnValue=true;
+
+  var toggle_div = event.target
+  if (!toggle_div || !(toggle_div instanceof HTMLElement)) return
+
+  var channel_div = toggle_div.parentNode.parentNode
+  if (!channel_div || !(channel_div instanceof HTMLElement)) return
+
+  channel_div.className = (channel_div.classList.contains(constants.dom_classes.toggle_expanded))
+    ? constants.dom_classes.toggle_collapsed
+    : constants.dom_classes.toggle_expanded
 }
 
 var make_episode_listitem_html = function(data) {
@@ -508,10 +551,10 @@ var make_webcast_reloaded_div = function(hls_url, referer_url) {
 }
 
 var insert_webcast_reloaded_div = function(channel_div, hls_url, referer_url) {
-  var webcast_reloaded_div    = make_webcast_reloaded_div(hls_url, referer_url)
-  var collapsible_channel_div = channel_div.querySelector(':scope > div.' + constants.dom_classes.collapsible)
+  var webcast_reloaded_div = make_webcast_reloaded_div(hls_url, referer_url)
+  var collapsible_div      = channel_div.querySelector(':scope > div.' + constants.dom_classes.div_collapsible)
 
-  collapsible_channel_div.insertBefore(webcast_reloaded_div, collapsible_channel_div.childNodes[0])
+  collapsible_div.insertBefore(webcast_reloaded_div, collapsible_div.childNodes[0])
 }
 
 var make_channel_div = function(data) {
@@ -586,16 +629,20 @@ var make_channel_div = function(data) {
   div = unsafeWindow.document.createElement('div')
 
   html = [
-    '<h2 x-hls-url="' + hls_url + '" x-referer-url="' + referer_url + '">' + name + '</h2>',
-    '<div class="' + constants.dom_classes.collapsible + '" style="display:none">',
+    '<div class="' + constants.dom_classes.div_heading + '">',
+    '  <h2 x-hls-url="' + hls_url + '" x-referer-url="' + referer_url + '">' + name + '</h2>',
+    '  <div class="' + constants.dom_classes.div_toggle + '"></div>',
+    '</div>',
+    '<div class="' + constants.dom_classes.div_collapsible + '">',
     '  <div>' + summary + '</div>',
     '  <ul>' + episodes.map(make_episode_listitem_html).join("\n") + '</ul>',
     '</div>'
   ]
 
+  div.setAttribute('class', constants.dom_classes.toggle_collapsed)
   div.innerHTML = html.join("\n")
-  div.addEventListener("click", onclick_channel_div)
-  div.querySelector(':scope > h2').addEventListener("click", onclick_channel_title)
+  div.querySelector(':scope > div.' + constants.dom_classes.div_heading + ' > h2').addEventListener("click", onclick_channel_title)
+  div.querySelector(':scope > div.' + constants.dom_classes.div_heading + ' > div.' + constants.dom_classes.div_toggle).addEventListener("click", onclick_channel_toggle)
 
   insert_webcast_reloaded_div(div, hls_url, referer_url)
 
