@@ -1,6 +1,8 @@
 ### [Pluto TV](https://github.com/warren-bank/crx-Pluto-TV/tree/webmonkey-userscript/es5)
 
-[Userscript](https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/Pluto-TV.user.js) to run in the [WebMonkey](https://github.com/warren-bank/Android-WebMonkey) application for Android.
+[Userscript](https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/Pluto-TV.user.js) to run in both:
+* the [WebMonkey](https://github.com/warren-bank/Android-WebMonkey) application for Android
+* the [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) web browser extension for Chrome/Chromium
 
 Its purpose is to:
 * remove clutter from the [Pluto TV channel guide](https://pluto.tv/live-tv/)

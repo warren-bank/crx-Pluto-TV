@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.0.0
+// @version      1.1.0
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -17,26 +17,33 @@
 
 // ----------------------------------------------------------------------------- constants
 
+var user_options = {
+  "redirect_to_webcast_reloaded": true,
+  "force_http":                   true,
+  "force_https":                  false
+}
+
 var constants = {
-  "debug":              false,
-  "title":              "Pluto TV: Program Guide",
-  "target_pathname":    "/careers",
+  "debug":               false,
+  "title":               "Pluto TV: Program Guide",
+  "target_pathname":     "/careers",
   "dom_ids": {
-    "div_controls":     "EPG_controls",
-    "div_data":         "EPG_data",
-    "from_date_select": "from_date",
-    "to_date_select":   "to_date",
-    "button_refresh":   "load_data"
+    "div_controls":      "EPG_controls",
+    "div_data":          "EPG_data",
+    "from_date_select":  "from_date",
+    "to_date_select":    "to_date",
+    "button_refresh":    "load_data"
   },
   "dom_classes": {
-    "collapsible":      "collapsible"
+    "collapsible":       "collapsible",
+    "div_webcast_icons": "icons-container"
   },
   "epg_url_qs": {
-    "appVersion":       "5.16.0-d477896b413cece569cca008ddae951d02cadc9e",
-    "deviceLat":        "38.8979",
-    "deviceLon":        "-77.0365",
-    "deviceMake":       "Chrome",
-    "deviceVersion":    "90.0.4710.39"
+    "appVersion":        "5.16.0-d477896b413cece569cca008ddae951d02cadc9e",
+    "deviceLat":         "38.8979",
+    "deviceLon":         "-77.0365",
+    "deviceMake":        "Chrome",
+    "deviceVersion":     "90.0.4710.39"
   }
 }
 
@@ -50,9 +57,13 @@ var reinitialize_dom = function() {
     "head": [
       '<style>',
 
+      // --------------------------------------------------- CSS: global
+
       'body {',
       '  text-align: center;',
       '}',
+
+      // --------------------------------------------------- CSS: EPG controls
 
       '#EPG_controls {',
       '  display: inline-block;',
@@ -81,6 +92,8 @@ var reinitialize_dom = function() {
       '  font-family: monospace;',
       '  text-align: right;',
       '}',
+
+      // --------------------------------------------------- CSS: EPG data
 
       '#EPG_data {',
       '  margin-top: 0.5em;',
@@ -111,6 +124,66 @@ var reinitialize_dom = function() {
       '  background-color: #eee;',
       '  padding: 0.5em 1em;',
       '  margin: 0;',
+      '}',
+
+      // --------------------------------------------------- CSS: EPG data (links to tools on Webcast Reloaded website)
+
+      '#EPG_data > div > div.collapsible > div.icons-container {',
+      '  display: block;',
+      '  position: relative;',
+      '  z-index: 1;',
+      '  float: right;',
+      '  margin: 0.5em;',
+      '  width: 60px;',
+      '  height: 60px;',
+      '  max-height: 60px;',
+      '  vertical-align: top;',
+      '  background-color: #d7ecf5;',
+      '  border: 1px solid #000;',
+      '  border-radius: 14px;',
+      '}',
+
+      '#EPG_data > div > div.collapsible > div.icons-container > a.chromecast,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.chromecast > img,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.airplay,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.airplay > img,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.proxy,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.proxy > img,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.video-link,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.video-link > img {',
+      '  display: block;',
+      '  width: 25px;',
+      '  height: 25px;',
+      '}',
+
+      '#EPG_data > div > div.collapsible > div.icons-container > a.chromecast,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.airplay,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.proxy,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.video-link {',
+      '  position: absolute;',
+      '  z-index: 1;',
+      '  text-decoration: none;',
+      '}',
+
+      '#EPG_data > div > div.collapsible > div.icons-container > a.chromecast,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.airplay {',
+      '  top: 0;',
+      '}',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.proxy,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.video-link {',
+      '  bottom: 0;',
+      '}',
+
+      '#EPG_data > div > div.collapsible > div.icons-container > a.chromecast,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.proxy {',
+      '  left: 0;',
+      '}',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.airplay,',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.video-link {',
+      '  right: 0;',
+      '}',
+      '#EPG_data > div > div.collapsible > div.icons-container > a.airplay + a.video-link {',
+      '  right: 17px; /* (60 - 25)/2 to center when there is no proxy icon */',
       '}',
 
       '</style>'
@@ -276,6 +349,72 @@ var populate_dom_controls = function() {
   EPG_controls.appendChild(div)
 }
 
+// ----------------------------------------------------------------------------- URL links to tools on Webcast Reloaded website
+
+var get_webcast_reloaded_url = function(hls_url, vtt_url, referer_url, force_http, force_https) {
+  force_http  = (typeof force_http  === 'boolean') ? force_http  : user_options.force_http
+  force_https = (typeof force_https === 'boolean') ? force_https : user_options.force_https
+
+  var encoded_hls_url, encoded_vtt_url, encoded_referer_url, webcast_reloaded_base, webcast_reloaded_url
+
+  encoded_hls_url       = encodeURIComponent(encodeURIComponent(btoa(hls_url)))
+  encoded_vtt_url       = vtt_url ? encodeURIComponent(encodeURIComponent(btoa(vtt_url))) : null
+  referer_url           = referer_url ? referer_url : unsafeWindow.location.href
+  encoded_referer_url   = encodeURIComponent(encodeURIComponent(btoa(referer_url)))
+
+  webcast_reloaded_base = {
+    "https": "https://warren-bank.github.io/crx-webcast-reloaded/external_website/index.html",
+    "http":  "http://webcast-reloaded.surge.sh/index.html"
+  }
+
+  webcast_reloaded_base = (force_http)
+                            ? webcast_reloaded_base.http
+                            : (force_https)
+                               ? webcast_reloaded_base.https
+                               : (hls_url.toLowerCase().indexOf('http:') === 0)
+                                  ? webcast_reloaded_base.http
+                                  : webcast_reloaded_base.https
+
+  webcast_reloaded_url  = webcast_reloaded_base + '#/watch/' + encoded_hls_url + (encoded_vtt_url ? ('/subtitle/' + encoded_vtt_url) : '') + '/referer/' + encoded_referer_url
+  return webcast_reloaded_url
+}
+
+var get_webcast_reloaded_url_chromecast_sender = function(hls_url, vtt_url, referer_url) {
+  return get_webcast_reloaded_url(hls_url, vtt_url, referer_url, /* force_http= */ null, /* force_https= */ null).replace('/index.html', '/chromecast_sender.html')
+}
+
+var get_webcast_reloaded_url_airplay_sender = function(hls_url, vtt_url, referer_url) {
+  return get_webcast_reloaded_url(hls_url, vtt_url, referer_url, /* force_http= */ true, /* force_https= */ false).replace('/index.html', '/airplay_sender.html')
+}
+
+var get_webcast_reloaded_url_proxy = function(hls_url, vtt_url, referer_url) {
+  return get_webcast_reloaded_url(hls_url, vtt_url, referer_url, /* force_http= */ true, /* force_https= */ false).replace('/index.html', '/proxy.html')
+}
+
+// ----------------------------------------------------------------------------- URL redirect
+
+var redirect_to_url = function(url) {
+  if (!url) return
+
+  try {
+    unsafeWindow.top.location = url
+  }
+  catch(e) {
+    unsafeWindow.location = url
+  }
+}
+
+var process_hls_url = function(hls_url, referer_url) {
+  if (typeof GM_startIntent === 'function') {
+    // running in Android-WebMonkey: open Intent chooser
+    GM_startIntent(/* action= */ 'android.intent.action.VIEW', /* data= */ hls_url, /* type= */ 'application/x-mpegurl', /* extras: */ 'referUrl', referer_url)
+  }
+  else if (user_options.redirect_to_webcast_reloaded) {
+    // running in standard web browser: redirect URL to top-level tool on Webcast Reloaded website
+    redirect_to_url(get_webcast_reloaded_url(hls_url, /* vtt_url= */ null, referer_url))
+  }
+}
+
 // ----------------------------------------------------------------------------- DOM: dynamic elements - EPG data
 
 var onclick_channel_div = function(event) {
@@ -289,10 +428,6 @@ var onclick_channel_div = function(event) {
 
   var display = collapsible_div.style.display
   collapsible_div.style.display = (display === 'none') ? 'block' : 'none'
-}
-
-var process_hls_url = function(hls_url, referer_url) {
-  GM_startIntent(/* action= */ 'android.intent.action.VIEW', /* data= */ hls_url, /* type= */ 'application/x-mpegurl', /* extras: */ 'referUrl', referer_url)
 }
 
 var onclick_channel_title = function(event) {
@@ -348,8 +483,39 @@ var make_episode_listitem_html = function(data) {
   return '<li>' + html.join('<br>') + '</li>'
 }
 
+var make_webcast_reloaded_div = function(hls_url, referer_url) {
+  var webcast_reloaded_urls = {
+    "icons_basepath":    'https://github.com/warren-bank/crx-webcast-reloaded/raw/gh-pages/chrome_extension/2-release/popup/img/',
+//  "index":             get_webcast_reloaded_url(                  hls_url, /* vtt_url= */ null, referer_url),
+    "chromecast_sender": get_webcast_reloaded_url_chromecast_sender(hls_url, /* vtt_url= */ null, referer_url),
+    "airplay_sender":    get_webcast_reloaded_url_airplay_sender(   hls_url, /* vtt_url= */ null, referer_url),
+    "proxy":             get_webcast_reloaded_url_proxy(            hls_url, /* vtt_url= */ null, referer_url)
+  }
+
+  var div = unsafeWindow.document.createElement('div')
+
+  var html = [
+    '<a target="_blank" class="chromecast" href="' + webcast_reloaded_urls.chromecast_sender + '" title="Chromecast Sender"><img src="'       + webcast_reloaded_urls.icons_basepath + 'chromecast.png"></a>',
+    '<a target="_blank" class="airplay" href="'    + webcast_reloaded_urls.airplay_sender    + '" title="ExoAirPlayer Sender"><img src="'     + webcast_reloaded_urls.icons_basepath + 'airplay.png"></a>',
+    '<a target="_blank" class="proxy" href="'      + webcast_reloaded_urls.proxy             + '" title="HLS-Proxy Configuration"><img src="' + webcast_reloaded_urls.icons_basepath + 'proxy.png"></a>',
+    '<a target="_blank" class="video-link" href="' + hls_url                                 + '" title="direct link to video"><img src="'    + webcast_reloaded_urls.icons_basepath + 'video_link.png"></a>'
+  ]
+
+  div.setAttribute('class', constants.dom_classes.div_webcast_icons)
+  div.innerHTML = html.join("\n")
+
+  return div
+}
+
+var insert_webcast_reloaded_div = function(channel_div, hls_url, referer_url) {
+  var webcast_reloaded_div    = make_webcast_reloaded_div(hls_url, referer_url)
+  var collapsible_channel_div = channel_div.querySelector(':scope > div.' + constants.dom_classes.collapsible)
+
+  collapsible_channel_div.insertBefore(webcast_reloaded_div, collapsible_channel_div.childNodes[0])
+}
+
 var make_channel_div = function(data) {
-  var slug, name, summary, hls_url, episodes, div, html
+  var slug, name, summary, hls_url, referer_url, episodes, div, html
   var temp, temp2
 
   slug = data.slug
@@ -392,6 +558,8 @@ var make_channel_div = function(data) {
   }
   if (!hls_url) return null
 
+  referer_url = 'https://pluto.tv/live-tv/' + slug
+
   episodes = []
   if (data.timelines && Array.isArray(data.timelines) && data.timelines.length) {
     for (var i=0; i < data.timelines.length; i++) {
@@ -418,7 +586,7 @@ var make_channel_div = function(data) {
   div = unsafeWindow.document.createElement('div')
 
   html = [
-    '<h2 x-hls-url="' + hls_url + '" x-referer-url="https://pluto.tv/live-tv/' + slug + '">' + name + '</h2>',
+    '<h2 x-hls-url="' + hls_url + '" x-referer-url="' + referer_url + '">' + name + '</h2>',
     '<div class="' + constants.dom_classes.collapsible + '" style="display:none">',
     '  <div>' + summary + '</div>',
     '  <ul>' + episodes.map(make_episode_listitem_html).join("\n") + '</ul>',
@@ -428,6 +596,9 @@ var make_channel_div = function(data) {
   div.innerHTML = html.join("\n")
   div.addEventListener("click", onclick_channel_div)
   div.querySelector(':scope > h2').addEventListener("click", onclick_channel_title)
+
+  insert_webcast_reloaded_div(div, hls_url, referer_url)
+
   return div
 }
 
