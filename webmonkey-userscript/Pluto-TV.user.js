@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.3.2
+// @version      1.3.3
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -240,14 +240,14 @@ var reinitialize_dom = function() {
       '}',
 
       '#EPG_data > div.collapsible_state_closed > div.heading > div.toggle_collapsible {',
-      '  background-image: url("https://github.com/material-icons/material-icons-png/raw/master/png/white/arrow_drop_down_circle/twotone.png");',
+      '  background-image: url("https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.arrow_drop_down_circle.twotone.png");',
       '}',
       '#EPG_data > div.collapsible_state_closed > div.collapsible {',
       '  display: none;',
       '}',
 
       '#EPG_data > div.collapsible_state_opened > div.heading > div.toggle_collapsible {',
-      '  background-image: url("https://github.com/material-icons/material-icons-png/raw/master/png/white/expand_less/round.png");',
+      '  background-image: url("https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.expand_less.round.png");',
       '}',
       '#EPG_data > div.collapsible_state_opened > div.collapsible {',
       '  display: block;',

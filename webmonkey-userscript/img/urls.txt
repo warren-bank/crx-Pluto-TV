@@ -1,0 +1,9 @@
+source:
+=======
+https://github.com/material-icons/material-icons-png/raw/master/png/white/arrow_drop_down_circle/twotone.png
+https://github.com/material-icons/material-icons-png/raw/master/png/white/expand_less/round.png
+
+mirror:
+=======
+https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.arrow_drop_down_circle.twotone.png
+https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.expand_less.round.png
