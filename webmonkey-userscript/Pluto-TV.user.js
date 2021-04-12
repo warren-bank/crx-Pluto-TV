@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.3.0
+// @version      1.3.1
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -724,6 +724,8 @@ var insert_webcast_reloaded_div = function(channel_div, hls_url, referer_url) {
   collapsible_div.insertBefore(webcast_reloaded_div, collapsible_div.childNodes[0])
 }
 
+var active_channel_categories = {}
+
 var make_channel_div = function(data) {
   var slug, categoryID, name, summary, hls_url, referer_url, episodes, div, html
   var temp, temp2
@@ -732,7 +734,10 @@ var make_channel_div = function(data) {
   if (!slug) slug = ''
 
   categoryID = data.categoryID
-  if (!categoryID) categoryID = ''
+  if (categoryID)
+    active_channel_categories[categoryID] = true
+  else
+    categoryID = ''
 
   name = data.name
   if (!name) return null
@@ -838,7 +843,7 @@ var populate_category_select_filter = function(categories) {
   for (var i=0; i < categories.length; i++) {
     category = categories[i]
 
-    if (category && (typeof category === 'object') && category.id && category.name && (category.name !== 'Empty Category')) {
+    if (category && (typeof category === 'object') && category.id && active_channel_categories[category.id] && category.name && (category.name !== 'Empty Category')) {
       option = make_element('option')
       option.setAttribute('value', category.id)
       option.innerHTML = category.name
