@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.3.1
+// @version      1.3.2
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -33,7 +33,20 @@ var strings = {
   "label_category":      "By Category:",
   "default_category":    "Show All",
   "label_name":          "By Name:",
-  "button_filter":       "Apply"
+  "button_filter":       "Apply",
+
+  "episode_labels": {
+    "title":             "title:",
+    "summary":           "summary:",
+    "time_start":        "starts at:",
+    "time_stop":         "ends at:",
+    "time_duration":     "duration:"
+  },
+  "episode_units": {
+    "duration_hour":     "hour",
+    "duration_hours":    "hours",
+    "duration_minutes":  "minutes"
+  }
 }
 
 var constants = {
@@ -125,7 +138,7 @@ var reinitialize_dom = function() {
       '}',
 
       '#EPG_controls > div > select {',
-      '  margin-left: 2em;',
+      '  margin-left: 0.75em;',
       '}',
 
       '#EPG_controls > div > select > option {',
@@ -150,6 +163,18 @@ var reinitialize_dom = function() {
 
       '#EPG_filters > div > h4 {',
       '  margin: 0;',
+      '}',
+
+      '#EPG_filters > div > input,',
+      '#EPG_filters > div > select,',
+      '#EPG_filters > div > button {',
+      '  display: inline-block;',
+      '  margin: 0px;',
+      '}',
+
+      '#EPG_filters > div > input,',
+      '#EPG_filters > div > select {',
+      '  margin-left: 0.75em;',
       '}',
 
       // --------------------------------------------------- CSS: EPG data
@@ -195,7 +220,13 @@ var reinitialize_dom = function() {
       '  padding: 0.5em;',
       '}',
 
+      '#EPG_data > div > div.collapsible ul > li > table td:first-child {',
+      '  font-style: italic;',
+      '  padding-right: 1em;',
+      '}',
+
       '#EPG_data > div > div.collapsible ul > li > blockquote {',
+      '  display: block;',
       '  background-color: #eee;',
       '  padding: 0.5em 1em;',
       '  margin: 0;',
@@ -443,13 +474,13 @@ var populate_dom_controls = function() {
 
   div = make_element('div')
   div.setAttribute('class', 'right')
-  div.appendChild(make_span(strings.label_from + ' '))
+  div.appendChild(make_span(strings.label_from))
   div.appendChild(select_from)
   EPG_controls.appendChild(div)
 
   div = make_element('div')
   div.setAttribute('class', 'right')
-  div.appendChild(make_span(strings.label_to + ' '))
+  div.appendChild(make_span(strings.label_to))
   div.appendChild(select_to)
   EPG_controls.appendChild(div)
 
@@ -544,12 +575,12 @@ var populate_dom_filters = function() {
   EPG_filters.appendChild(div)
 
   div = make_element('div')
-  div.appendChild(make_span(strings.label_category + ' '))
+  div.appendChild(make_span(strings.label_category))
   div.appendChild(select_category)
   EPG_filters.appendChild(div)
 
   div = make_element('div')
-  div.appendChild(make_span(strings.label_name + ' '))
+  div.appendChild(make_span(strings.label_name))
   div.appendChild(text_query)
   EPG_filters.appendChild(div)
 
@@ -652,6 +683,25 @@ var onclick_channel_toggle = function(event) {
     : constants.dom_classes.toggle_expanded
 }
 
+var convert_ms_to_mins = function(X) {
+  // (X ms)(1 sec / 1000 ms)(1 min / 60 sec)
+  return Math.ceil(X / 60000)
+}
+
+var get_ms_duration_time_string = function(ms) {
+  var time_string = ''
+  var mins = convert_ms_to_mins(ms)
+  var hours
+
+  if (mins >= 60) {
+    hours       = Math.floor(mins / 60)
+    time_string = hours + ' ' + ((hours < 2) ? strings.episode_units.duration_hour : strings.episode_units.duration_hours) + ', '
+    mins        = mins % 60
+  }
+
+  return time_string + mins + ' ' + strings.episode_units.duration_minutes
+}
+
 var make_episode_listitem_html = function(data) {
   var dates = {
     obj: {},
@@ -663,34 +713,47 @@ var make_episode_listitem_html = function(data) {
   if (data.start) {
     temp            = new Date(data.start)
     dates.obj.start = temp
-    dates.str.start = temp.toLocaleDateString() + ' ' + get_12_hour_time_string(temp)
+    dates.str.start = temp.toLocaleDateString() + ' ' + get_12_hour_time_string(temp, '&nbsp;')
   }
 
   if (data.stop) {
     temp           = new Date(data.stop)
     dates.obj.stop = temp
-    dates.str.stop = temp.toLocaleDateString() + ' ' + get_12_hour_time_string(temp)
+    dates.str.stop = temp.toLocaleDateString() + ' ' + get_12_hour_time_string(temp, '&nbsp;')
   }
 
   if (data.duration) {
-    // (X ms)(1 sec / 1000 ms)(1 min / 60 sec)
-    dates.str.duration = Math.ceil(data.duration / 60000) + ' minutes'
+    dates.str.duration = get_ms_duration_time_string(data.duration)
   }
 
-  var html = []
+  var tr = []
+
+  var append_tr = function(td, colspan) {
+    if (Array.isArray(td))
+      tr.push('<tr><td>' + td.join('</td><td>') + '</td></tr>')
+    else if ((typeof colspan === 'number') && (colspan > 1))
+      tr.push('<tr><td colspan="' + colspan + '">' + td + '</td></tr>')
+    else
+      tr.push('<tr><td>' + td + '</td></tr>')
+  }
 
   if (data.title)
-    html.push('title: '     + data.title)
+    append_tr([strings.episode_labels.title, data.title])
   if (dates.str.start)
-    html.push('starts at: ' + dates.str.start)
+    append_tr([strings.episode_labels.time_start, dates.str.start])
   if (dates.str.stop)
-    html.push('ends at: '   + dates.str.stop)
+    append_tr([strings.episode_labels.time_stop, dates.str.stop])
   if (dates.str.duration)
-    html.push('duration: '  + dates.str.duration)
+    append_tr([strings.episode_labels.time_duration, dates.str.duration])
   if (data.description)
-    html.push('summary: '   + '<blockquote>' + data.description + '</blockquote>')
+    append_tr(strings.episode_labels.summary, 2)
 
-  return '<li>' + html.join('<br>') + '</li>'
+  var html = [
+    '<table>' + tr.join("\n") + '</table>',
+    '<blockquote>' + data.description + '</blockquote>'
+  ]
+
+  return '<li>' + html.join("\n") + '</li>'
 }
 
 var make_webcast_reloaded_div = function(hls_url, referer_url) {
