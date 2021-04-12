@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.3.3
+// @version      1.3.4
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -624,7 +624,7 @@ var get_webcast_reloaded_url_chromecast_sender = function(hls_url, vtt_url, refe
 }
 
 var get_webcast_reloaded_url_airplay_sender = function(hls_url, vtt_url, referer_url) {
-  return get_webcast_reloaded_url(hls_url, vtt_url, referer_url, /* force_http= */ true, /* force_https= */ false).replace('/index.html', '/airplay_sender.html')
+  return get_webcast_reloaded_url(hls_url, vtt_url, referer_url, /* force_http= */ true, /* force_https= */ false).replace('/index.html', '/airplay_sender.es5.html')
 }
 
 var get_webcast_reloaded_url_proxy = function(hls_url, vtt_url, referer_url) {
