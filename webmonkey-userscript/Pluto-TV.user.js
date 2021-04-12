@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.2.0
+// @version      1.3.0
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -23,16 +23,33 @@ var user_options = {
   "force_https":                  false
 }
 
+var strings = {
+  "heading_controls":    "Download EPG Data",
+  "label_from":          "From:",
+  "label_to":            "To:",
+  "button_refresh":      "Load/Refresh",
+
+  "heading_filters":     "Filter Channels",
+  "label_category":      "By Category:",
+  "default_category":    "Show All",
+  "label_name":          "By Name:",
+  "button_filter":       "Apply"
+}
+
 var constants = {
   "debug":               false,
   "title":               "Pluto TV: Program Guide",
   "target_pathname":     "/careers",
   "dom_ids": {
     "div_controls":      "EPG_controls",
+    "div_filters":       "EPG_filters",
     "div_data":          "EPG_data",
-    "from_date_select":  "from_date",
-    "to_date_select":    "to_date",
-    "button_refresh":    "load_data"
+    "select_from_date":  "from_date",
+    "select_to_date":    "to_date",
+    "button_refresh":    "load_data",
+    "select_category":   "channel_categories",
+    "text_query":        "channel_search_query",
+    "button_filter":     "filter_channels"
   },
   "dom_classes": {
     "toggle_collapsed":  "collapsible_state_closed",
@@ -68,6 +85,15 @@ var reinitialize_dom = function() {
       '  text-align: center;',
       '}',
 
+      '.bordered {',
+      '  border-top: 1px solid #333;',
+      '  border-bottom: 1px solid #333;',
+      '  margin-top: 0.5em;',
+      '  margin-bottom: 0.5em;',
+      '  padding-top: 0.5em;',
+      '  padding-bottom: 0.5em;',
+      '}',
+
       // --------------------------------------------------- CSS: EPG controls
 
       '#EPG_controls {',
@@ -76,11 +102,20 @@ var reinitialize_dom = function() {
 
       '#EPG_controls > div {',
       '  margin: 1.25em 0;',
+      '}',
+      '#EPG_controls > div:first-child {',
+      '  margin-top: 0;',
+      '}',
+      '#EPG_controls > div:last-child {',
+      '  margin-bottom: 0;',
+      '}',
+
+      '#EPG_controls > div.right {',
       '  text-align: right;',
       '}',
 
-      '#EPG_controls > div:last-child {',
-      '  text-align: center;',
+      '#EPG_controls > div > h4 {',
+      '  margin: 0;',
       '}',
 
       '#EPG_controls > div > select,',
@@ -96,6 +131,25 @@ var reinitialize_dom = function() {
       '#EPG_controls > div > select > option {',
       '  font-family: monospace;',
       '  text-align: right;',
+      '}',
+
+      // --------------------------------------------------- CSS: EPG filters
+
+      '#EPG_filters {',
+      '}',
+
+      '#EPG_filters > div {',
+      '  margin: 1.25em 0;',
+      '}',
+      '#EPG_filters > div:first-child {',
+      '  margin-top: 0;',
+      '}',
+      '#EPG_filters > div:last-child {',
+      '  margin-bottom: 0;',
+      '}',
+
+      '#EPG_filters > div > h4 {',
+      '  margin: 0;',
       '}',
 
       // --------------------------------------------------- CSS: EPG data
@@ -233,6 +287,7 @@ var reinitialize_dom = function() {
     "body": [
       '<div id="PlutoTV_EPG">',
       '  <div id="EPG_controls"></div>',
+      '  <div id="EPG_filters" class="bordered"></div>',
       '  <div id="EPG_data"></div>',
       '</div>'
     ]
@@ -243,6 +298,20 @@ var reinitialize_dom = function() {
 
   unsafeWindow.document.title = constants.title
 }
+
+// ----------------------------------------------------------------------------- DOM: dynamic elements - common
+
+var make_element = function(elementName, html) {
+  var el = unsafeWindow.document.createElement(elementName)
+
+  if (html)
+    el.innerHTML = html
+
+  return el
+}
+
+var make_span = function(text) {return make_element('span', text)}
+var make_h4   = function(text) {return make_element('h4',   text)}
 
 // ----------------------------------------------------------------------------- DOM: dynamic elements - controls
 
@@ -310,9 +379,9 @@ var make_date_select_element = function(count_30_min_blocks, direction) {
   if (!count_30_min_blocks || (typeof count_30_min_blocks !== 'number'))
     count_30_min_blocks = 6 // 3 hours
 
-  var select = unsafeWindow.document.createElement('select')
+  var select = make_element('select')
 
-  select.setAttribute('id', (direction === -1) ? constants.dom_ids.from_date_select : constants.dom_ids.to_date_select)
+  select.setAttribute('id', (direction === -1) ? constants.dom_ids.select_from_date : constants.dom_ids.select_to_date)
 
   var date = new Date()
   var option, date_iso_string, date_obj, time_string
@@ -320,7 +389,7 @@ var make_date_select_element = function(count_30_min_blocks, direction) {
   var is_first_option = true
 
   for (; i <= count_30_min_blocks; i++) {
-    option          = unsafeWindow.document.createElement('option')
+    option          = make_element('option')
     date_iso_string = get_date_iso_string(get_previous_30_min_date(date, (i * 30 * direction)))
     date_obj        = new Date(date_iso_string)
     time_string     = date_obj.toLocaleDateString() + ' ' + get_12_hour_time_string(date_obj, '&nbsp;')
@@ -340,8 +409,8 @@ var make_date_select_element = function(count_30_min_blocks, direction) {
 }
 
 var onclick_refresh_button = function() {
-  var from_date_iso_string = unsafeWindow.document.getElementById(constants.dom_ids.from_date_select).value
-  var to_date_iso_string   = unsafeWindow.document.getElementById(constants.dom_ids.to_date_select).value
+  var from_date_iso_string = unsafeWindow.document.getElementById(constants.dom_ids.select_from_date).value
+  var to_date_iso_string   = unsafeWindow.document.getElementById(constants.dom_ids.select_to_date).value
 
   if (from_date_iso_string && to_date_iso_string) {
     fetch_epg_url(from_date_iso_string, to_date_iso_string)
@@ -349,21 +418,13 @@ var onclick_refresh_button = function() {
 }
 
 var make_refresh_button = function() {
-  var button = unsafeWindow.document.createElement('button')
+  var button = make_element('button')
 
   button.setAttribute('id', constants.dom_ids.button_refresh)
-  button.innerHTML = 'Load/Refresh EPG Data'
+  button.innerHTML = strings.button_refresh
   button.addEventListener("click", onclick_refresh_button)
 
   return button
-}
-
-var make_span = function(text) {
-  var span = unsafeWindow.document.createElement('span')
-
-  span.innerHTML = text
-
-  return span
 }
 
 var populate_dom_controls = function() {
@@ -376,19 +437,125 @@ var populate_dom_controls = function() {
 
   EPG_controls.innerHTML  = ''
 
-  div = unsafeWindow.document.createElement('div')
-  div.appendChild(make_span('From: '))
+  div = make_element('div')
+  div.appendChild(make_h4(strings.heading_controls))
+  EPG_controls.appendChild(div)
+
+  div = make_element('div')
+  div.setAttribute('class', 'right')
+  div.appendChild(make_span(strings.label_from + ' '))
   div.appendChild(select_from)
   EPG_controls.appendChild(div)
 
-  div = unsafeWindow.document.createElement('div')
-  div.appendChild(make_span('To: '))
+  div = make_element('div')
+  div.setAttribute('class', 'right')
+  div.appendChild(make_span(strings.label_to + ' '))
   div.appendChild(select_to)
   EPG_controls.appendChild(div)
 
-  div = unsafeWindow.document.createElement('div')
+  div = make_element('div')
   div.appendChild(refresh_button)
   EPG_controls.appendChild(div)
+}
+
+// ----------------------------------------------------------------------------- DOM: dynamic elements - filters
+
+var active_filters = {
+  "category":   "",
+  "text_query": ""
+}
+
+var process_filters = function(category, text_query) {
+  if ((active_filters.category === category) && (active_filters.text_query === text_query)) return
+
+  active_filters.category   = category
+  active_filters.text_query = text_query
+
+  var EPG_data = unsafeWindow.document.getElementById(constants.dom_ids.div_data)
+  var channel_divs = EPG_data.childNodes
+  var channel_div, is_visible, category_id, channel_name
+
+  for (var i=0; i < channel_divs.length; i++) {
+    channel_div = channel_divs[i]
+
+    if (channel_div && (channel_div instanceof HTMLElement) && (channel_div.nodeName === 'DIV')) {
+      is_visible = true
+
+      if (is_visible && category) {
+        category_id = channel_div.getAttribute('x-category-id')
+
+        if (category_id !== category)
+          is_visible = false
+      }
+
+      if (is_visible && text_query) {
+        channel_name = channel_div.getAttribute('x-channel-name')
+
+        if (channel_name.indexOf(text_query) === -1)
+          is_visible = false
+      }
+
+      channel_div.style.display = is_visible ? 'block' : 'none'
+    }
+  }
+}
+
+var onclick_filter_button = function() {
+  var category   = unsafeWindow.document.getElementById(constants.dom_ids.select_category).value
+  var text_query = unsafeWindow.document.getElementById(constants.dom_ids.text_query).value.toLowerCase()
+
+  process_filters(category, text_query)
+}
+
+var make_filter_button = function() {
+  var button = make_element('button')
+
+  button.setAttribute('id', constants.dom_ids.button_filter)
+  button.innerHTML = strings.button_filter
+  button.addEventListener("click", onclick_filter_button)
+
+  return button
+}
+
+var make_category_select_element = function() {
+  var select = make_element('select')
+  select.setAttribute('id', constants.dom_ids.select_category)
+  return select
+}
+
+var make_text_query_input_element = function() {
+  var input = make_element('input')
+  input.setAttribute('id', constants.dom_ids.text_query)
+  input.setAttribute('type', 'text')
+  return input
+}
+
+var populate_dom_filters = function() {
+  var select_category = make_category_select_element()
+  var text_query      = make_text_query_input_element()
+  var filter_button   = make_filter_button()
+  var EPG_filters     = unsafeWindow.document.getElementById(constants.dom_ids.div_filters)
+  var div
+
+  EPG_filters.innerHTML  = ''
+
+  div = make_element('div')
+  div.appendChild(make_h4(strings.heading_filters))
+  EPG_filters.appendChild(div)
+
+  div = make_element('div')
+  div.appendChild(make_span(strings.label_category + ' '))
+  div.appendChild(select_category)
+  EPG_filters.appendChild(div)
+
+  div = make_element('div')
+  div.appendChild(make_span(strings.label_name + ' '))
+  div.appendChild(text_query)
+  EPG_filters.appendChild(div)
+
+  div = make_element('div')
+  div.appendChild(filter_button)
+  EPG_filters.appendChild(div)
 }
 
 // ----------------------------------------------------------------------------- URL links to tools on Webcast Reloaded website
@@ -535,7 +702,7 @@ var make_webcast_reloaded_div = function(hls_url, referer_url) {
     "proxy":             get_webcast_reloaded_url_proxy(            hls_url, /* vtt_url= */ null, referer_url)
   }
 
-  var div = unsafeWindow.document.createElement('div')
+  var div = make_element('div')
 
   var html = [
     '<a target="_blank" class="chromecast" href="' + webcast_reloaded_urls.chromecast_sender + '" title="Chromecast Sender"><img src="'       + webcast_reloaded_urls.icons_basepath + 'chromecast.png"></a>',
@@ -558,11 +725,14 @@ var insert_webcast_reloaded_div = function(channel_div, hls_url, referer_url) {
 }
 
 var make_channel_div = function(data) {
-  var slug, name, summary, hls_url, referer_url, episodes, div, html
+  var slug, categoryID, name, summary, hls_url, referer_url, episodes, div, html
   var temp, temp2
 
   slug = data.slug
   if (!slug) slug = ''
+
+  categoryID = data.categoryID
+  if (!categoryID) categoryID = ''
 
   name = data.name
   if (!name) return null
@@ -626,7 +796,7 @@ var make_channel_div = function(data) {
     }
   }
 
-  div = unsafeWindow.document.createElement('div')
+  div = make_element('div')
 
   html = [
     '<div class="' + constants.dom_classes.div_heading + '">',
@@ -640,6 +810,8 @@ var make_channel_div = function(data) {
   ]
 
   div.setAttribute('class', constants.dom_classes.toggle_collapsed)
+  div.setAttribute('x-category-id',  categoryID)
+  div.setAttribute('x-channel-name', name.toLowerCase())
   div.innerHTML = html.join("\n")
   div.querySelector(':scope > div.' + constants.dom_classes.div_heading + ' > h2').addEventListener("click", onclick_channel_title)
   div.querySelector(':scope > div.' + constants.dom_classes.div_heading + ' > div.' + constants.dom_classes.div_toggle).addEventListener("click", onclick_channel_toggle)
@@ -647,6 +819,32 @@ var make_channel_div = function(data) {
   insert_webcast_reloaded_div(div, hls_url, referer_url)
 
   return div
+}
+
+var populate_category_select_filter = function(categories) {
+  var select = unsafeWindow.document.getElementById(constants.dom_ids.select_category)
+  var option, category
+
+  select.innerHTML = ''
+
+  option = make_element('option')
+  option.setAttribute('selected', 'selected')
+  option.setAttribute('value', '')
+  option.innerHTML = strings.default_category
+  select.appendChild(option)
+
+  if (!categories || !Array.isArray(categories) || !categories.length) return
+
+  for (var i=0; i < categories.length; i++) {
+    category = categories[i]
+
+    if (category && (typeof category === 'object') && category.id && category.name && (category.name !== 'Empty Category')) {
+      option = make_element('option')
+      option.setAttribute('value', category.id)
+      option.innerHTML = category.name
+      select.appendChild(option)
+    }
+  }
 }
 
 var process_epg_data = function(data) {
@@ -669,6 +867,8 @@ var process_epg_data = function(data) {
       EPG_data.appendChild(div)
     }
   }
+
+  populate_category_select_filter(data.categories)
 }
 
 // ----------------------------------------------------------------------------- EPG: download data
@@ -739,18 +939,27 @@ var fetch_epg_url = function(from_date_iso_string, to_date_iso_string) {
 
 // ----------------------------------------------------------------------------- bootstrap
 
+var prevent_history_redirects = function() {
+  if (unsafeWindow.history) {
+    unsafeWindow.history.pushState    = function(){}
+    unsafeWindow.history.replaceState = function(){}
+  }
+}
+
 var init = function() {
   var pathname = unsafeWindow.location.pathname
 
   if (pathname.indexOf(constants.target_pathname) === 0) {
     reinitialize_dom()
     populate_dom_controls()
+    populate_dom_filters()
   }
   else {
     unsafeWindow.location = constants.target_pathname
   }
 }
 
+prevent_history_redirects()
 init()
 
 // -----------------------------------------------------------------------------
