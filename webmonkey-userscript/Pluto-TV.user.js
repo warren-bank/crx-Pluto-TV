@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.3.4
+// @version      1.3.5
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -35,6 +35,10 @@ var strings = {
   "label_name":          "By Name:",
   "button_filter":       "Apply",
 
+  "heading_tools":       "Tools",
+  "button_expand_all":   "Expand All Channels",
+  "button_collapse_all": "Collapse All Channels",
+
   "episode_labels": {
     "title":             "title:",
     "summary":           "summary:",
@@ -54,17 +58,18 @@ var constants = {
   "title":               "Pluto TV: Program Guide",
   "target_pathname":     "/careers",
   "dom_ids": {
+    "div_root":          "PlutoTV_EPG",
     "div_controls":      "EPG_controls",
     "div_filters":       "EPG_filters",
+    "div_tools":         "EPG_tools",
     "div_data":          "EPG_data",
     "select_from_date":  "from_date",
     "select_to_date":    "to_date",
-    "button_refresh":    "load_data",
     "select_category":   "channel_categories",
-    "text_query":        "channel_search_query",
-    "button_filter":     "filter_channels"
+    "text_query":        "channel_search_query"
   },
   "dom_classes": {
+    "data_loaded":       "loaded",
     "toggle_collapsed":  "collapsible_state_closed",
     "toggle_expanded":   "collapsible_state_opened",
     "div_heading":       "heading",
@@ -78,6 +83,10 @@ var constants = {
     "deviceLon":         "-77.0365",
     "deviceMake":        "Chrome",
     "deviceVersion":     "90.0.4710.39"
+  },
+  "img_urls": {
+    "icon_expand":       "https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.arrow_drop_down_circle.twotone.png",
+    "icon_collapse":     "https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.expand_less.round.png"
   }
 }
 
@@ -177,6 +186,42 @@ var reinitialize_dom = function() {
       '  margin-left: 0.75em;',
       '}',
 
+      // --------------------------------------------------- CSS: EPG tools
+
+      '#EPG_tools {',
+      '}',
+
+      '#EPG_tools > div {',
+      '  margin: 1.25em 0;',
+      '}',
+      '#EPG_tools > div:first-child {',
+      '  margin-top: 0;',
+      '}',
+      '#EPG_tools > div:last-child {',
+      '  margin-bottom: 0;',
+      '}',
+
+      '#EPG_tools > div > h4 {',
+      '  margin: 0;',
+      '}',
+
+      '#EPG_tools > div > button {',
+      '  display: inline-block;',
+      '  margin: 0px;',
+      '}',
+      '#EPG_tools > div > button + button {',
+      '  margin-left: 1.25em;',
+      '}',
+
+      '#EPG_tools > div > button > * {',
+      '  vertical-align: middle;',
+      '}',
+      '#EPG_tools > div > button > img {',
+      '  display: inline-block;',
+      '  background-color: #999;',
+      '  margin-right: 0.5em;',
+      '}',
+
       // --------------------------------------------------- CSS: EPG data
 
       '#EPG_data {',
@@ -240,14 +285,14 @@ var reinitialize_dom = function() {
       '}',
 
       '#EPG_data > div.collapsible_state_closed > div.heading > div.toggle_collapsible {',
-      '  background-image: url("https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.arrow_drop_down_circle.twotone.png");',
+      '  background-image: url("' + constants.img_urls.icon_expand + '");',
       '}',
       '#EPG_data > div.collapsible_state_closed > div.collapsible {',
       '  display: none;',
       '}',
 
       '#EPG_data > div.collapsible_state_opened > div.heading > div.toggle_collapsible {',
-      '  background-image: url("https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.expand_less.round.png");',
+      '  background-image: url("' + constants.img_urls.icon_collapse + '");',
       '}',
       '#EPG_data > div.collapsible_state_opened > div.collapsible {',
       '  display: block;',
@@ -313,12 +358,30 @@ var reinitialize_dom = function() {
       '  right: 17px; /* (60 - 25)/2 to center when there is no proxy icon */',
       '}',
 
+      // --------------------------------------------------- CSS: separation between EPG sections
+
+      '#PlutoTV_EPG > #EPG_filters,',
+      '#PlutoTV_EPG > #EPG_tools,',
+      '#PlutoTV_EPG > #EPG_data {',
+      '  display: none;',
+      '}',
+
+      '#PlutoTV_EPG.loaded > #EPG_filters,',
+      '#PlutoTV_EPG.loaded > #EPG_tools,',
+      '#PlutoTV_EPG.loaded > #EPG_data {',
+      '  display: block;',
+      '  margin-top: 0.5em;',
+      '  border-top: 1px solid #333;',
+      '  padding-top: 0.5em;',
+      '}',
+
       '</style>'
     ],
     "body": [
       '<div id="PlutoTV_EPG">',
       '  <div id="EPG_controls"></div>',
-      '  <div id="EPG_filters" class="bordered"></div>',
+      '  <div id="EPG_filters"></div>',
+      '  <div id="EPG_tools"></div>',
       '  <div id="EPG_data"></div>',
       '</div>'
     ]
@@ -451,7 +514,6 @@ var onclick_refresh_button = function() {
 var make_refresh_button = function() {
   var button = make_element('button')
 
-  button.setAttribute('id', constants.dom_ids.button_refresh)
   button.innerHTML = strings.button_refresh
   button.addEventListener("click", onclick_refresh_button)
 
@@ -541,7 +603,6 @@ var onclick_filter_button = function() {
 var make_filter_button = function() {
   var button = make_element('button')
 
-  button.setAttribute('id', constants.dom_ids.button_filter)
   button.innerHTML = strings.button_filter
   button.addEventListener("click", onclick_filter_button)
 
@@ -587,6 +648,77 @@ var populate_dom_filters = function() {
   div = make_element('div')
   div.appendChild(filter_button)
   EPG_filters.appendChild(div)
+}
+
+// ----------------------------------------------------------------------------- DOM: dynamic elements - tools
+
+var process_expand_or_collapse_all_button = function(expand, exclude_filtered_channels) {
+  var EPG_data = unsafeWindow.document.getElementById(constants.dom_ids.div_data)
+  var channel_divs = EPG_data.childNodes
+  var channel_div, is_expanded, is_filtered_channel
+
+  for (var i=0; i < channel_divs.length; i++) {
+    channel_div = channel_divs[i]
+    is_expanded = channel_div.classList.contains(constants.dom_classes.toggle_expanded)
+
+    // short-circuit if nothing to do
+    if (is_expanded == expand) continue
+
+    if (exclude_filtered_channels) {
+      is_filtered_channel = (channel_div.style.display === 'none')
+
+      // short-circuit if filtered/nonvisible channels are excluded
+      if (is_filtered_channel) continue
+    }
+
+    channel_div.className = (expand)
+      ? constants.dom_classes.toggle_expanded
+      : constants.dom_classes.toggle_collapsed
+  }
+}
+
+var onclick_expand_all_button = function() {
+  process_expand_or_collapse_all_button(true, false)
+}
+
+var onclick_collapse_all_button = function() {
+  process_expand_or_collapse_all_button(false, false)
+}
+
+var make_expand_all_button = function() {
+  var button = make_element('button')
+
+  button.innerHTML = '<img src="' + constants.img_urls.icon_expand + '" /> ' + strings.button_expand_all
+  button.addEventListener("click", onclick_expand_all_button)
+
+  return button
+}
+
+var make_collapse_all_button = function() {
+  var button = make_element('button')
+
+  button.innerHTML = '<img src="' + constants.img_urls.icon_collapse + '" /> ' + strings.button_collapse_all
+  button.addEventListener("click", onclick_collapse_all_button)
+
+  return button
+}
+
+var populate_dom_tools = function() {
+  var expand_all_button   = make_expand_all_button()
+  var collapse_all_button = make_collapse_all_button()
+  var EPG_tools           = unsafeWindow.document.getElementById(constants.dom_ids.div_tools)
+  var div
+
+  EPG_tools.innerHTML  = ''
+
+  div = make_element('div')
+  div.appendChild(make_h4(strings.heading_tools))
+  EPG_tools.appendChild(div)
+
+  div = make_element('div')
+  div.appendChild(expand_all_button)
+  div.appendChild(collapse_all_button)
+  EPG_tools.appendChild(div)
 }
 
 // ----------------------------------------------------------------------------- URL links to tools on Webcast Reloaded website
@@ -916,7 +1048,10 @@ var populate_category_select_filter = function(categories) {
 }
 
 var process_epg_data = function(data) {
-  var EPG_data  = unsafeWindow.document.getElementById(constants.dom_ids.div_data)
+  var EPG_root = unsafeWindow.document.getElementById(constants.dom_ids.div_root)
+  var EPG_data = unsafeWindow.document.getElementById(constants.dom_ids.div_data)
+
+  EPG_root.className = ''
   EPG_data.innerHTML = ''
 
   if (
@@ -937,6 +1072,8 @@ var process_epg_data = function(data) {
   }
 
   populate_category_select_filter(data.categories)
+
+  EPG_root.className = constants.dom_classes.data_loaded
 }
 
 // ----------------------------------------------------------------------------- EPG: download data
@@ -1021,6 +1158,7 @@ var init = function() {
     reinitialize_dom()
     populate_dom_controls()
     populate_dom_filters()
+    populate_dom_tools()
   }
   else {
     unsafeWindow.location = constants.target_pathname
