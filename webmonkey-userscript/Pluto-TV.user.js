@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.3.5
+// @version      1.3.6
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
 // @run-at       document-end
+// @grant        unsafeWindow
 // @homepage     https://github.com/warren-bank/crx-Pluto-TV/tree/webmonkey-userscript/es5
 // @supportURL   https://github.com/warren-bank/crx-Pluto-TV/issues
 // @downloadURL  https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/Pluto-TV.user.js
@@ -36,8 +37,8 @@ var strings = {
   "button_filter":       "Apply",
 
   "heading_tools":       "Tools",
-  "button_expand_all":   "Expand All Channels",
-  "button_collapse_all": "Collapse All Channels",
+  "button_expand_all":   "Expand All",
+  "button_collapse_all": "Collapse All",
 
   "episode_labels": {
     "title":             "title:",
@@ -105,15 +106,6 @@ var reinitialize_dom = function() {
       'body {',
       '  background-color: #fff;',
       '  text-align: center;',
-      '}',
-
-      '.bordered {',
-      '  border-top: 1px solid #333;',
-      '  border-bottom: 1px solid #333;',
-      '  margin-top: 0.5em;',
-      '  margin-bottom: 0.5em;',
-      '  padding-top: 0.5em;',
-      '  padding-bottom: 0.5em;',
       '}',
 
       // --------------------------------------------------- CSS: EPG controls
