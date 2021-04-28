@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV
 // @description  Watch videos in external player.
-// @version      1.3.6
+// @version      1.3.7
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -255,6 +255,20 @@ var reinitialize_dom = function() {
 
       '#EPG_data > div > div.collapsible {',
       '  padding: 0.5em;',
+      '}',
+
+      '#EPG_data > div > div.collapsible ul {',
+      '  list-style: none;',
+      '  margin: 0;',
+      '  padding: 0;',
+      '  padding-left: 1em;',
+      '}',
+
+      '#EPG_data > div > div.collapsible ul > li {',
+      '  list-style: none;',
+      '  margin-top: 0.5em;',
+      '  border-top: 1px solid #999;',
+      '  padding-top: 0.5em;',
       '}',
 
       '#EPG_data > div > div.collapsible ul > li > table td:first-child {',
