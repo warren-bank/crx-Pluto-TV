@@ -1,17 +1,15 @@
 // ==UserScript==
-// @name         Pluto TV
+// @name         Pluto TV: live-tv
 // @description  Watch videos in external player.
-// @version      1.1.0
-// @match        *://pluto.tv/live-tv
-// @match        *://pluto.tv/live-tv/*
-// @match        *://*.pluto.tv/live-tv
-// @match        *://*.pluto.tv/live-tv/*
+// @version      2.0.0
+// @match        *://pluto.tv/*
+// @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
 // @run-at       document-end
-// @homepage     https://github.com/warren-bank/crx-Pluto-TV/tree/webmonkey-userscript/es6
+// @homepage     https://github.com/warren-bank/crx-Pluto-TV/tree/live-tv/webmonkey-userscript/es6
 // @supportURL   https://github.com/warren-bank/crx-Pluto-TV/issues
-// @downloadURL  https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es6/webmonkey-userscript/Pluto-TV.user.js
-// @updateURL    https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es6/webmonkey-userscript/Pluto-TV.user.js
+// @downloadURL  https://github.com/warren-bank/crx-Pluto-TV/raw/live-tv/webmonkey-userscript/es6/webmonkey-userscript/Pluto-TV.user.js
+// @updateURL    https://github.com/warren-bank/crx-Pluto-TV/raw/live-tv/webmonkey-userscript/es6/webmonkey-userscript/Pluto-TV.user.js
 // @namespace    warren-bank
 // @author       Warren Bank
 // @copyright    Warren Bank
@@ -25,6 +23,12 @@ const user_options = {
   "redirect_to_webcast_reloaded": true,
   "force_http":                   true,
   "force_https":                  false
+}
+
+const constants = {
+  "base_url": {
+    "pathname":                   "/live-tv"
+  }
 }
 
 // ----------------------------------------------------------------------------- DOM updates
@@ -68,9 +72,14 @@ const update_dom = function() {
 
 const is_channel = function() {
   const pathname = unsafeWindow.location.pathname
-  const pathroot = '/live-tv/'
-  if (pathname.indexOf(pathroot) !== 0) return false
-  if (pathname.length === pathroot.length) return false
+  let index
+
+  index = pathname.indexOf(constants.base_url.pathname + '/')
+  if (index === -1) return false
+
+  index += constants.base_url.pathname.length + 1
+  if (index === pathname.length) return false
+
   return true
 }
 
@@ -225,6 +234,8 @@ const call_init_when_dom_ready = function() {
 }
 
 const pre_init = function() {
+  if (unsafeWindow.location.pathname.indexOf(constants.base_url.pathname) === -1) return
+
   const call_init_on_next_history_state_change = !is_channel()
 
   unsafeWindow.history.pushState    = function(){if (call_init_on_next_history_state_change) init()}
