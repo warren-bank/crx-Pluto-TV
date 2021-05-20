@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV: on-demand
 // @description  Watch on-demand videos in external player.
-// @version      1.0.0
+// @version      1.0.1
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -425,11 +425,11 @@ var fetch_api_session_token = function(callback) {
 var fetch_api_session_json = function(url, headers, callback) {
   if (!state.session.token) return
 
-  headers = Object.assign({}, (headers || {}), {
-    "access-control-request-headers": "authorization,content-type",
-    "authorization":                  "Bearer " + state.session.token,
-    "content-type":                   "application/json"
-  })
+  if (!headers) headers = {}
+
+  headers["access-control-request-headers"] = "authorization,content-type"
+  headers["authorization"]                  = "Bearer " + state.session.token
+  headers["content-type"]                   = "application/json"
 
   download_json(url, headers, callback)
 }
