@@ -1,16 +1,16 @@
 // ==UserScript==
-// @name         Pluto TV
+// @name         Pluto TV: live-tv
 // @description  Watch videos in external player.
-// @version      1.3.7
+// @version      2.0.0
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
 // @run-at       document-end
 // @grant        unsafeWindow
-// @homepage     https://github.com/warren-bank/crx-Pluto-TV/tree/webmonkey-userscript/es5
+// @homepage     https://github.com/warren-bank/crx-Pluto-TV/tree/live-tv/webmonkey-userscript/es5
 // @supportURL   https://github.com/warren-bank/crx-Pluto-TV/issues
-// @downloadURL  https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/Pluto-TV.user.js
-// @updateURL    https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/Pluto-TV.user.js
+// @downloadURL  https://github.com/warren-bank/crx-Pluto-TV/raw/live-tv/webmonkey-userscript/es5/webmonkey-userscript/Pluto-TV.user.js
+// @updateURL    https://github.com/warren-bank/crx-Pluto-TV/raw/live-tv/webmonkey-userscript/es5/webmonkey-userscript/Pluto-TV.user.js
 // @namespace    warren-bank
 // @author       Warren Bank
 // @copyright    Warren Bank
@@ -57,7 +57,14 @@ var strings = {
 var constants = {
   "debug":               false,
   "title":               "Pluto TV: Program Guide",
-  "target_pathname":     "/careers",
+  "target_url": {
+    "pathname":          "/careers",
+    "hash":              "#live-tv"
+  },
+  "base_url": {
+    "pathname":          "/live-tv",
+    "href":              "https://pluto.tv/live-tv"
+  },
   "dom_ids": {
     "div_root":          "PlutoTV_EPG",
     "div_controls":      "EPG_controls",
@@ -79,15 +86,15 @@ var constants = {
     "div_webcast_icons": "icons-container"
   },
   "epg_url_qs": {
-    "appVersion":        "5.16.0-d477896b413cece569cca008ddae951d02cadc9e",
+    "appVersion":        "5.17.0-38a9908bb8d8f15260d990bd00c1f6b49c7bba28",
     "deviceLat":         "38.8979",
     "deviceLon":         "-77.0365",
     "deviceMake":        "Chrome",
     "deviceVersion":     "90.0.4710.39"
   },
   "img_urls": {
-    "icon_expand":       "https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.arrow_drop_down_circle.twotone.png",
-    "icon_collapse":     "https://github.com/warren-bank/crx-Pluto-TV/raw/webmonkey-userscript/es5/webmonkey-userscript/img/white.expand_less.round.png"
+    "icon_expand":       "https://github.com/warren-bank/crx-Pluto-TV/raw/live-tv/webmonkey-userscript/es5/webmonkey-userscript/img/white.arrow_drop_down_circle.twotone.png",
+    "icon_collapse":     "https://github.com/warren-bank/crx-Pluto-TV/raw/live-tv/webmonkey-userscript/es5/webmonkey-userscript/img/white.expand_less.round.png"
   }
 }
 
@@ -737,7 +744,7 @@ var get_webcast_reloaded_url = function(hls_url, vtt_url, referer_url, force_htt
 
   encoded_hls_url       = encodeURIComponent(encodeURIComponent(btoa(hls_url)))
   encoded_vtt_url       = vtt_url ? encodeURIComponent(encodeURIComponent(btoa(vtt_url))) : null
-  referer_url           = referer_url ? referer_url : unsafeWindow.location.href
+  referer_url           = referer_url ? referer_url : constants.base_url.href
   encoded_referer_url   = encodeURIComponent(encodeURIComponent(btoa(referer_url)))
 
   webcast_reloaded_base = {
@@ -774,23 +781,65 @@ var get_webcast_reloaded_url_proxy = function(hls_url, vtt_url, referer_url) {
 var redirect_to_url = function(url) {
   if (!url) return
 
-  try {
-    unsafeWindow.top.location = url
+  if (typeof GM_loadUrl === 'function') {
+    if ((url[0] === '/') && (typeof GM_resolveUrl === 'function'))
+      url = GM_resolveUrl(url, unsafeWindow.location.href)
+    if (url.indexOf('http') === 0)
+      GM_loadUrl(url, 'Referer', unsafeWindow.location.href)
   }
-  catch(e) {
-    unsafeWindow.location = url
+  else {
+    try {
+      unsafeWindow.top.location = url
+    }
+    catch(e) {
+      unsafeWindow.window.location = url
+    }
   }
 }
 
-var process_hls_url = function(hls_url, referer_url) {
+var process_video_url = function(video_url, video_type, vtt_url, referer_url) {
+  if (!referer_url)
+    referer_url = constants.base_url.href
+
   if (typeof GM_startIntent === 'function') {
     // running in Android-WebMonkey: open Intent chooser
-    GM_startIntent(/* action= */ 'android.intent.action.VIEW', /* data= */ hls_url, /* type= */ 'application/x-mpegurl', /* extras: */ 'referUrl', referer_url)
+
+    var args = [
+      /* action = */ 'android.intent.action.VIEW',
+      /* data   = */ video_url,
+      /* type   = */ video_type
+    ]
+
+    // extras:
+    if (vtt_url) {
+      args.push('textUrl')
+      args.push(vtt_url)
+    }
+    if (referer_url) {
+      args.push('referUrl')
+      args.push(referer_url)
+    }
+
+    GM_startIntent.apply(this, args)
+    return true
   }
   else if (user_options.redirect_to_webcast_reloaded) {
     // running in standard web browser: redirect URL to top-level tool on Webcast Reloaded website
-    redirect_to_url(get_webcast_reloaded_url(hls_url, /* vtt_url= */ null, referer_url))
+
+    redirect_to_url(get_webcast_reloaded_url(video_url, vtt_url, referer_url))
+    return true
   }
+  else {
+    return false
+  }
+}
+
+var process_hls_url = function(hls_url, vtt_url, referer_url) {
+  process_video_url(/* video_url= */ hls_url, /* video_type= */ 'application/x-mpegurl', vtt_url, referer_url)
+}
+
+var process_dash_url = function(dash_url, vtt_url, referer_url) {
+  process_video_url(/* video_url= */ dash_url, /* video_type= */ 'application/dash+xml', vtt_url, referer_url)
 }
 
 // ----------------------------------------------------------------------------- DOM: dynamic elements - EPG data
@@ -803,7 +852,7 @@ var onclick_channel_title = function(event) {
   var referer_url = h2.getAttribute('x-referer-url')
 
   if (hls_url && referer_url) {
-    process_hls_url(hls_url, referer_url)
+    process_hls_url(hls_url, /* vtt_url= */ null, referer_url)
   }
 }
 
@@ -1158,20 +1207,23 @@ var prevent_history_redirects = function() {
 }
 
 var init = function() {
-  var pathname = unsafeWindow.location.pathname
+  if (('function' === (typeof GM_getUrl)) && (GM_getUrl() !== unsafeWindow.location.href)) return
 
-  if (pathname.indexOf(constants.target_pathname) === 0) {
+  var pathname = unsafeWindow.location.pathname
+  var hash     = unsafeWindow.location.hash
+
+  if ((pathname.indexOf(constants.target_url.pathname) >= 0) && (hash === constants.target_url.hash)) {
+    prevent_history_redirects()
     reinitialize_dom()
     populate_dom_controls()
     populate_dom_filters()
     populate_dom_tools()
   }
-  else {
-    unsafeWindow.location = constants.target_pathname
+  else if (pathname.indexOf(constants.base_url.pathname) >= 0) {
+    redirect_to_url(constants.target_url.pathname + constants.target_url.hash)
   }
 }
 
-prevent_history_redirects()
 init()
 
 // -----------------------------------------------------------------------------
