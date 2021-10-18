@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV: live-tv
 // @description  Watch videos in external player.
-// @version      2.0.0
+// @version      2.0.1
 // @match        *://pluto.tv/*
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
@@ -18,11 +18,18 @@
 // ----------------------------------------------------------------------------- constants
 
 const user_options = {
-  "script_init_poll_interval_ms": 500,
-  "script_init_timeout_ms":       30000,
-  "redirect_to_webcast_reloaded": true,
-  "force_http":                   true,
-  "force_https":                  false
+  "common": {
+    "script_init_poll_interval_ms": 500,
+    "script_init_timeout_ms":       30000
+  },
+  "webmonkey": {
+    "post_intent_redirect_to_url":  "about:blank"
+  },
+  "greasemonkey": {
+    "redirect_to_webcast_reloaded": true,
+    "force_http":                   true,
+    "force_https":                  false
+  }
 }
 
 const constants = {
@@ -38,15 +45,23 @@ const pre_update_dom = function() {
     video,
     body > *,
     body > #root > *,
-    body > #root > div.withGuide > div[kind="linearChannel"]
+    body > #root > div > section > section > *
     {display: none !important;}
 
     body > #root,
-    body > #root > div.withGuide
+    body > #root > div,
+    body > #root > div > section,
+    body > #root > div > section > section,
+    body > #root > div > section > section > section[class^="contentContainer"]
     {display: block !important;}
 
-    body > #root > div.withGuide,
-    body > #root > div.withGuide > div[kind="linearChannel"] + div
+    body > #root,
+    body > #root > div,
+    body > #root > div > section,
+    body > #root > div > section > section,
+    body > #root > div > section > section > section[class^="contentContainer"],
+    body > #root > div > section > section > section[class^="contentContainer"] > div,
+    body > #root > div > section > section > section[class^="contentContainer"] > div > nav[role="navigation"]
     {height: 100% !important;}
   `
 
@@ -86,7 +101,7 @@ const is_channel = function() {
 const get_id = function() {
   if (!is_channel()) return null
 
-  const img = unsafeWindow.document.querySelector('div.сhannel-line-container-selected img[src^="https://images.pluto.tv/channels/"]')
+  const img = unsafeWindow.document.querySelector('a.current > img[src^="https://images.pluto.tv/channels/"]')
   if (!img) return null
 
   const regex = new RegExp('^.*/channels/([^/]+)/.*$')
@@ -163,9 +178,9 @@ const get_webcast_reloaded_url = (hls_url, vtt_url, referer_url) => {
     "http":  "http://webcast-reloaded.surge.sh/index.html"
   }
 
-  webcast_reloaded_base = (user_options.force_http)
+  webcast_reloaded_base = (user_options.greasemonkey.force_http)
                             ? webcast_reloaded_base.http
-                            : (user_options.force_https)
+                            : (user_options.greasemonkey.force_https)
                                ? webcast_reloaded_base.https
                                : (hls_url.toLowerCase().indexOf('http:') === 0)
                                   ? webcast_reloaded_base.http
@@ -180,12 +195,33 @@ const get_webcast_reloaded_url = (hls_url, vtt_url, referer_url) => {
 const redirect_to_url = function(url) {
   if (!url) return
 
-  try {
-    unsafeWindow.top.location = url
+  if (typeof GM_loadUrl === 'function') {
+    if (typeof GM_resolveUrl === 'function')
+      url = GM_resolveUrl(url, unsafeWindow.location.href) || url
+
+    GM_loadUrl(url, 'Referer', unsafeWindow.location.href)
   }
-  catch(e) {
-    unsafeWindow.location = url
+  else {
+    try {
+      unsafeWindow.top.location = url
+    }
+    catch(e) {
+      unsafeWindow.window.location = url
+    }
   }
+}
+
+const process_webmonkey_post_intent_redirect_to_url = function() {
+  let url = null
+
+  if (typeof user_options.webmonkey.post_intent_redirect_to_url === 'string')
+    url = user_options.webmonkey.post_intent_redirect_to_url
+
+  if (typeof user_options.webmonkey.post_intent_redirect_to_url === 'function')
+    url = user_options.webmonkey.post_intent_redirect_to_url()
+
+  if (typeof url === 'string')
+    redirect_to_url(url)
 }
 
 const process_hls_url = function(hls_url) {
@@ -194,8 +230,9 @@ const process_hls_url = function(hls_url) {
   if (typeof GM_startIntent === 'function') {
     // running in Android-WebMonkey: open Intent chooser
     GM_startIntent(/* action= */ 'android.intent.action.VIEW', /* data= */ hls_url, /* type= */ 'application/x-mpegurl', /* extras: */ 'referUrl', referer_url)
+    process_webmonkey_post_intent_redirect_to_url()
   }
-  else if (user_options.redirect_to_webcast_reloaded) {
+  else if (user_options.greasemonkey.redirect_to_webcast_reloaded) {
     // running in standard web browser: redirect URL to top-level tool on Webcast Reloaded website
     redirect_to_url(get_webcast_reloaded_url(hls_url, /* vtt_url= */ null, referer_url))
   }
@@ -214,7 +251,7 @@ const init = function(hls_url) {
   update_dom()
 }
 
-const max_poll_attempts = Math.ceil(user_options.script_init_timeout_ms / user_options.script_init_poll_interval_ms)
+const max_poll_attempts = Math.ceil(user_options.common.script_init_timeout_ms / user_options.common.script_init_poll_interval_ms)
 let count_poll_attempts = 0
 
 const call_init_when_dom_ready = function() {
@@ -228,7 +265,7 @@ const call_init_when_dom_ready = function() {
       init(hls_url)
     }
     else {
-      setTimeout(call_init_when_dom_ready, user_options.script_init_poll_interval_ms)
+      setTimeout(call_init_when_dom_ready, user_options.common.script_init_poll_interval_ms)
     }
   }
 }
@@ -244,7 +281,7 @@ const pre_init = function() {
   pre_update_dom()
 
   if (call_init_on_next_history_state_change) {
-    setTimeout(init, user_options.script_init_timeout_ms)
+    setTimeout(init, user_options.common.script_init_timeout_ms)
   }
   else {
     call_init_when_dom_ready()
