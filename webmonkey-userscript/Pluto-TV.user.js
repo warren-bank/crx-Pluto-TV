@@ -1,8 +1,7 @@
 // ==UserScript==
 // @name         Pluto TV: on-demand
 // @description  Watch on-demand videos in external player.
-// @version      1.0.2
-// @match        *://pluto.tv/*
+// @version      1.0.3
 // @match        *://*.pluto.tv/*
 // @icon         https://pluto.tv/assets/images/favicons/favicon.png
 // @run-at       document-end
@@ -74,7 +73,7 @@ var constants = {
   "assert_video_url_convention":      true,
   "title":                            "Pluto TV: On-Demand Video Program Guide",
   "target_url": {
-    "pathname":                       "/careers",
+    "pathname":                       "/partners",
     "hash":                           "#on-demand"
   },
   "base_url": {
@@ -1770,7 +1769,12 @@ var prevent_history_redirects = function() {
 }
 
 var init = function() {
-  if (('function' === (typeof GM_getUrl)) && (GM_getUrl() !== unsafeWindow.location.href)) return
+  var gmUrl, pgUrl
+  if ('function' === (typeof GM_getUrl)) {
+    gmUrl = GM_getUrl()
+    pgUrl = unsafeWindow.location.href.replace(unsafeWindow.location.hash, '')
+    if (gmUrl && (gmUrl !== pgUrl)) return
+  }
 
   var pathname = unsafeWindow.location.pathname
   var hash     = unsafeWindow.location.hash
@@ -1786,6 +1790,8 @@ var init = function() {
     redirect_to_url(constants.target_url.pathname + constants.target_url.hash)
   }
 }
+
+if (user_options.debug_verbosity >= 5) debugger;
 
 init()
 

@@ -11,7 +11,7 @@ Its purpose is to:
 
 #### Notes:
 
-* all [on-demand pages](https://pluto.tv/on-demand) on the website are redirected to a single [target page](https://pluto.tv/careers#on-demand)
+* all [on-demand pages](https://pluto.tv/on-demand) on the website are redirected to a single [target page](https://pluto.tv/partners#on-demand)
   - chosen because its original content contains a minimal amount of script and style
 * after the target page has been loaded
   - its original content is replaced by a new single-page app (SPA) that only requires ES5
