@@ -11,7 +11,7 @@ Its purpose is to:
 
 #### Notes:
 
-* all [live-tv pages](https://pluto.tv/live-tv) on the website are redirected to a single [target page](https://pluto.tv/careers#live-tv)
+* all [live-tv pages](https://pluto.tv/live-tv) on the website are redirected to a single [target page](https://pluto.tv/partners#live-tv)
   - chosen because its original content contains a minimal amount of script and style
 * after the target page has been loaded
   - its original content is replaced by a new single-page app (SPA) that only requires ES5
